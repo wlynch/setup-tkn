@@ -7,14 +7,24 @@ inputs:
   version:
     description: 'Version of tkn to install (latest, v0.18.0, etc.)'
     required: false
-    default: 'v0.18.0'  
+    default: 'latest-release'  
 runs:
   using: "composite"
   steps:
   - shell: bash
     run: |
-      # Get the version, which defaults to latest release
-      tag="${{ inputs.version }}"
+      set -ex
+
+      # Install tkn:
+      # - if version is "latest-release", look up latest release.
+      # - otherwise, install the specified version.
+      case ${{ inputs.version }} in
+      latest-release)
+        tag=$(curl -L -s -u "username:${{ github.token }}" https://api.github.com/repos/tektoncd/cli/releases/latest | jq -r '.tag_name')
+        ;;
+      *)
+        tag="${{ inputs.version }}"
+      esac
       
       # Get the operating system
       os=${{ runner.os }}
@@ -25,8 +35,5 @@ runs:
       echo "Installing tkn@${tag} for ${os}"
       
       # Get the tar.xz
-      curl -LO https://github.com/tektoncd/cli/releases/download/${tag}/tkn_${tag:1}_${os}_x86_64.tar.gz
-      
-      # Extract tkn to your PATH (e.g. /usr/local/bin)
-      sudo tar xvzf tkn_${tag:1}_${os}_x86_64.tar.gz -C /usr/local/bin/ tkn
+      curl -fsL https://github.com/tektoncd/cli/releases/download/${tag}/tkn_${tag:1}_${os}_x86_64.tar.gz | sudo tar xzf - -C /usr/local/bin tkn
       
